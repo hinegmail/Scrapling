@@ -10,7 +10,7 @@ from app.logging_config import setup_logging
 from app.middleware.error_handler import ErrorHandlerMiddleware
 from app.middleware.logging import LoggingMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
-from app.routes import auth
+from app.routes import auth, tasks, selectors, proxies, task_execution, websocket
 
 # Setup logging
 setup_logging()
@@ -45,6 +45,11 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth.router)
+app.include_router(tasks.router)
+app.include_router(selectors.router)
+app.include_router(proxies.router)
+app.include_router(task_execution.router)
+app.include_router(websocket.router)
 
 
 @app.get("/health")
