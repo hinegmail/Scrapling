@@ -1,0 +1,147 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: scrapling-postgres
+    environment:
+      POSTGRES_USER: scrapling
+      POSTGRES_PASSWORD: scrapling_password
+      POSTGRES_DB: scrapling
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scrapling"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - scrapling-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: scrapling-redis
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - scrapling-network
+
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: scrapling-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: scrapling
+      RABBITMQ_DEFAULT_PASS: scrapling_password
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - scrapling-network
+
+  # FastAPI Backend
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: scrapling-api
+    environment:
+      DATABASE_URL: postgresql://scrapling:scrapling_password@postgres:5432/scrapling
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: amqp://scrapling:scrapling_password@rabbitmq:5672//
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      DEBUG: "False"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    networks:
+      - scrapling-network
+    restart: unless-stopped
+
+  # Celery Worker
+  celery_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: scrapling-celery-worker
+    command: celery -A app.celery_app worker --loglevel=info
+    environment:
+      DATABASE_URL: postgresql://scrapling:scrapling_password@postgres:5432/scrapling
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: amqp://scrapling:scrapling_password@rabbitmq:5672//
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+      - api
+    volumes:
+      - ./backend:/app
+    networks:
+      - scrapling-network
+    restart: unless-stopped
+
+  # React Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: scrapling-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    networks:
+      - scrapling-network
+    restart: unless-stopped
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: scrapling-nginx
+    ports:
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - api
+      - frontend
+    networks:
+      - scrapling-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+
+networks:
+  scrapling-network:
+    driver: bridge
