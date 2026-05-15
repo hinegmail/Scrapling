@@ -189,6 +189,59 @@ class TaskService:
                 raise ValidationError("XPath has unbalanced brackets")
 
     @staticmethod
+    def rerun_task(db: Session, user_id: UUID, task_id: UUID) -> Task:
+        """Rerun a task with existing configuration"""
+        original_task = TaskService.get_task(db, user_id, task_id)
+
+        # Create new task with same configuration
+        new_task = Task(
+            user_id=user_id,
+            name=original_task.name,
+            description=original_task.description,
+            target_url=original_task.target_url,
+            fetcher_type=original_task.fetcher_type,
+            selector=original_task.selector,
+            selector_type=original_task.selector_type,
+            timeout=original_task.timeout,
+            retry_count=original_task.retry_count,
+            use_proxy_rotation=original_task.use_proxy_rotation,
+            solve_cloudflare=original_task.solve_cloudflare,
+            custom_headers=original_task.custom_headers,
+            cookies=original_task.cookies,
+            wait_time=original_task.wait_time,
+            viewport_width=original_task.viewport_width,
+            viewport_height=original_task.viewport_height,
+            status=TaskStatus.DRAFT,
+        )
+
+        db.add(new_task)
+        db.commit()
+        db.refresh(new_task)
+        return new_task
+
+    @staticmethod
+    def _validate_selector(selector: str, selector_type: SelectorType) -> None:
+        """Validate selector syntax"""
+        if not selector:
+            raise ValidationError("Selector cannot be empty")
+
+        if selector_type == SelectorType.CSS:
+            # Basic CSS selector validation
+            if selector.startswith(" ") or selector.endswith(" "):
+                raise ValidationError("CSS selector cannot start or end with space")
+            # Check for invalid characters
+            if "[[" in selector or "]]" in selector:
+                raise ValidationError("Invalid CSS selector syntax")
+
+        elif selector_type == SelectorType.XPATH:
+            # Basic XPath validation
+            if not (selector.startswith("/") or selector.startswith(".")):
+                raise ValidationError("XPath must start with / or .")
+            # Check for balanced brackets
+            if selector.count("[") != selector.count("]"):
+                raise ValidationError("XPath has unbalanced brackets")
+
+    @staticmethod
     def _validate_fetcher_config(task_data) -> None:
         """Validate fetcher-specific configuration"""
         if hasattr(task_data, "fetcher_type"):

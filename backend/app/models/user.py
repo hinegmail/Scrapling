@@ -30,6 +30,8 @@ class User(Base, UUIDMixin, TimestampMixin):
     sessions: Mapped[list["Session"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     proxies: Mapped[list["Proxy"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     headers: Mapped[list["Header"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    api_keys: Mapped[list["APIKey"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    webhooks: Mapped[list["Webhook"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<User(id={self.id}, username={self.username}, email={self.email})>"
@@ -40,3 +42,5 @@ from app.models.task import Task
 from app.models.session import Session
 from app.models.proxy import Proxy
 from app.models.header import Header
+from app.models.api_key import APIKey
+from app.models.webhook import Webhook

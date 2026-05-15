@@ -45,10 +45,20 @@ class ProxyService:
             # Validate IP octets
             octets = host.split(".")
             for octet in octets:
-                if int(octet) > 255:
+                try:
+                    octet_value = int(octet)
+                    if octet_value > 255:
+                        return False, "Invalid IP address"
+                except ValueError:
                     return False, "Invalid IP address"
             return True, None
         elif re.match(hostname_pattern, host):
+            # Additional check: hostname should not be all digits (to avoid matching invalid IPs)
+            # If it looks like an IP but doesn't match the IP pattern, it's invalid
+            parts = host.split(".")
+            if len(parts) == 4 and all(part.isdigit() for part in parts):
+                # This looks like an IP but didn't match the IP pattern
+                return False, "Invalid IP address"
             return True, None
         else:
             return False, "Invalid host format (must be IP or hostname)"
@@ -197,3 +207,29 @@ class ProxyService:
             proxy_urls.append(url)
         
         return proxy_urls
+
+    @staticmethod
+    def rotate_proxy(proxy_list: list[str], request_index: int) -> Optional[str]:
+        """
+        Get the next proxy in rotation based on request index.
+        
+        For a list of N proxies, this function cycles through them:
+        - Request 0 -> Proxy 0
+        - Request 1 -> Proxy 1
+        - ...
+        - Request N-1 -> Proxy N-1
+        - Request N -> Proxy 0 (cycle repeats)
+        
+        Args:
+            proxy_list: List of proxy URLs
+            request_index: Current request index (0-based)
+            
+        Returns:
+            The proxy URL to use for this request, or None if list is empty
+        """
+        if not proxy_list:
+            return None
+        
+        # Use modulo to cycle through proxies
+        proxy_index = request_index % len(proxy_list)
+        return proxy_list[proxy_index]

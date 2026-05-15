@@ -158,3 +158,58 @@ async def clone_task(
     except Exception as e:
         logger.error(f"Error cloning task: {str(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to clone task")
+
+
+
+@router.post("/{task_id}/rerun", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
+async def rerun_task(
+    task_id: UUID,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Rerun an existing task with the same configuration"""
+    try:
+        task = TaskService.rerun_task(db, current_user["id"], task_id)
+        logger.info(f"Task rerun: {task_id} -> {task.id}")
+        return task
+    except NotFoundError as e:
+        logger.warning(f"Task not found: {task_id}")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error rerunning task: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to rerun task")
+
+
+@router.get("/history", response_model=TaskListResponse)
+async def get_task_history(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    status: Optional[TaskStatus] = Query(None),
+    search: Optional[str] = Query(None),
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get task history with pagination and filtering.
+    
+    - **page**: Page number (default: 1)
+    - **page_size**: Items per page (default: 10, max: 100)
+    - **status**: Filter by task status (optional)
+    - **search**: Search by name or description (optional)
+    """
+    try:
+        tasks, total = TaskService.get_tasks(
+            db, current_user["id"], page, page_size, status, search
+        )
+        total_pages = (total + page_size - 1) // page_size
+        
+        return TaskListResponse(
+            items=tasks,
+            total=total,
+            page=page,
+            page_size=page_size,
+            total_pages=total_pages,
+        )
+    except Exception as e:
+        logger.error(f"Error getting task history: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to get task history")

@@ -19,14 +19,29 @@ interface AuthState {
   error: string | null
 }
 
-const initialState: AuthState = {
-  user: null,
-  accessToken: localStorage.getItem('accessToken'),
-  refreshToken: localStorage.getItem('refreshToken'),
-  isAuthenticated: !!localStorage.getItem('accessToken'),
-  isLoading: false,
-  error: null,
+const getInitialState = (): AuthState => {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return {
+      user: null,
+      accessToken: null,
+      refreshToken: null,
+      isAuthenticated: false,
+      isLoading: false,
+      error: null,
+    }
+  }
+
+  return {
+    user: null,
+    accessToken: localStorage.getItem('accessToken'),
+    refreshToken: localStorage.getItem('refreshToken'),
+    isAuthenticated: !!localStorage.getItem('accessToken'),
+    isLoading: false,
+    error: null,
+  }
 }
+
+const initialState: AuthState = getInitialState()
 
 const authSlice = createSlice({
   name: 'auth',

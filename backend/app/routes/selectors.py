@@ -20,7 +20,7 @@ router = APIRouter(prefix="/api/v1/selectors", tags=["selectors"])
 class SelectorValidateRequest(BaseModel):
     """Selector validation request"""
     selector: str = Field(..., min_length=1, max_length=1000)
-    selector_type: str = Field(..., regex="^(css|xpath)$")
+    selector_type: str = Field(..., pattern="^(css|xpath)$")
 
 
 class SelectorValidateResponse(BaseModel):
@@ -33,7 +33,7 @@ class SelectorValidateResponse(BaseModel):
 class SelectorTestRequest(BaseModel):
     """Selector test request"""
     selector: str = Field(..., min_length=1, max_length=1000)
-    selector_type: str = Field(..., regex="^(css|xpath)$")
+    selector_type: str = Field(..., pattern="^(css|xpath)$")
     html_content: str = Field(..., min_length=1)
 
 

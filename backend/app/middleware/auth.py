@@ -5,7 +5,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthCredentials
+from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -20,7 +20,7 @@ security = HTTPBearer()
 
 
 async def get_current_user(
-    credentials: HTTPAuthCredentials = Depends(security),
+    credentials: dict = Depends(security),
     db: Session = Depends(get_db),
 ) -> dict:
     """
@@ -33,7 +33,7 @@ async def get_current_user(
         HTTPException: If token is invalid or expired
     """
     try:
-        token = credentials.credentials
+        token = credentials.get("credentials") if isinstance(credentials, dict) else credentials.credentials
         payload = AuthService.verify_token(token)
         user_id = UUID(payload.get("sub"))
         
@@ -78,7 +78,7 @@ async def get_current_user(
 
 
 async def get_optional_user(
-    credentials: Optional[HTTPAuthCredentials] = Depends(security),
+    credentials: Optional[dict] = Depends(security),
     db: Session = Depends(get_db),
 ) -> Optional[dict]:
     """
